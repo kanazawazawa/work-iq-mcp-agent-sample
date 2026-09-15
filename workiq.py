@@ -196,7 +196,7 @@ def _tool_calls(response: Any) -> list[dict[str, Any]]:
 
 
 async def run_agent(
-    get_token: TokenProvider, question: str
+    get_token: TokenProvider, question: str, middleware: list[Any] | None = None
 ) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
     """自社エージェントに Work IQ と Microsoft Learn を持たせて答えさせる。
 
@@ -217,6 +217,7 @@ async def run_agent(
             client=_client(),
             instructions=INSTRUCTIONS,
             tools=[workiq_tool, learn_tool],
+            middleware=middleware,
         )
         response = await agent.run(question)
 

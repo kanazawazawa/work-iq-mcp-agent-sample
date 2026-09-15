@@ -90,9 +90,17 @@
   <p class="note">
     エージェントには <strong>Work IQ MCP</strong> と <strong>Microsoft Learn MCP</strong> を渡しています。
     どちらを使うか、そもそも使うかは、エージェント自身が判断します。
+    {% if scoped %}
+    <br>② を押すと、あらかじめ決めておいたフォルダーの中だけを探します。
+    {% endif %}
   </p>
 
-  <button type="submit" {% if not user %}disabled{% endif %}>実行</button>
+  <button type="submit" name="scope" value="all" {% if not user %}disabled{% endif %}>
+    {% if scoped %}① {% endif %}実行</button>
+  {% if scoped %}
+    <button type="submit" name="scope" value="folder" {% if not user %}disabled{% endif %}>
+      ② 決めた資料だけ</button>
+  {% endif %}
   {# formnovalidate: このボタンだけ textarea の required を無視する #}
   <button type="submit" formaction="/reset" formnovalidate class="secondary"
           {% if not user %}disabled{% endif %}>クリア</button>
@@ -115,6 +123,12 @@
 
 {% if error %}<div class="answer error">{{ error }}</div>{% endif %}
 {% if answer_html %}
+  {% if scope_files %}
+    <div class="calls">
+      <span class="note">探した範囲:</span>
+      {% for file in scope_files %}<span class="badge">{{ file.name }}</span>{% endfor %}
+    </div>
+  {% endif %}
   <div class="calls">
     <span class="note">呼ばれたツール:</span>
     {% if tool_calls %}

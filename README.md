@@ -14,6 +14,7 @@ Work IQ は**サインインした本人の委任トークン**で呼びます�
 | ファイル | 中身 |
 | --- | --- |
 | [workiq.py](workiq.py) | MCP ツールの組み立てとエージェント実行 |
+| [scoped.py](scoped.py) | 探す範囲を決めたフォルダーに固定する (任意) |
 | [main.py](main.py) | サインイン (MSAL)、ルーティング |
 | [templates/index.html](templates/index.html) | 画面 |
 
@@ -82,6 +83,18 @@ async with workiq_tool, learn_tool:
 → [Policy governance for Work IQ MCP](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/policy-governance-mcp)
 
 Work IQ が公開するツールと使えるパスは [Work IQ MCP tool reference](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/tool-reference) と [entity model](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/entity-model) を参照してください。
+
+## ② 探す範囲をフォルダーに固定する
+
+`ask` は既定で利用者が見られる範囲すべてを探します。参照する資料の置き場所が決まっているなら、`.env` にそのフォルダーの URL を書くと、画面に「② 決めた資料だけ」が出ます。
+
+```
+WORKIQ_FOLDER_URL=https://contoso.sharepoint.com/sites/Sales/Shared%20Documents/提案書
+```
+
+同じ質問を ① と ② で投げると、参照先の面倉が変わります。
+
+やっているのは `ask` の `fileUrls` を埋めることだけです ([scoped.py](scoped.py))。モデルが引数を決めた後に差し替えるので、範囲はモデルの判断に左右されません。なお、これは検索範囲の指定であってアクセス制御ではありません。利用者が見られる範囲は変わりません。
 
 ## 本番向けではありません
 

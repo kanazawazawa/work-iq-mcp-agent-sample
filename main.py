@@ -21,6 +21,7 @@ from fastapi.templating import Jinja2Templates
 from markdown_it import MarkdownIt
 from starlette.middleware.sessions import SessionMiddleware
 
+import scoped
 import workiq
 
 load_dotenv()
@@ -111,7 +112,13 @@ def _render(request: Request, **extra):
     return templates.TemplateResponse(
         request,
         "index.html",
-        {"user": request.session.get("user"), "examples": EXAMPLES, **extra},
+        {
+            "user": request.session.get("user"),
+            "examples": EXAMPLES,
+            # WORKIQ_FOLDER_URL が未設定なら ② は出さない。
+            "scoped": bool(scoped.FOLDER_URL),
+            **extra,
+        },
     )
 
 
@@ -164,15 +171,19 @@ async def logout(request: Request):
 
 
 @app.post("/ask")
-async def ask(request: Request, question: str = Form(...)):
+async def ask(request: Request, question: str = Form(...), scope: str = Form("all")):
     sid = request.session.get("sid")
     if not sid or sid not in _caches:
         return RedirectResponse("/login", status_code=303)
 
+    get_token = _token_provider(sid)
     try:
-        answer, tool_calls, references = await workiq.run_agent(
-            _token_provider(sid), question
-        )
+        if scope == "folder":
+            answer, tool_calls, references = await scoped.run_agent(get_token, question)
+            scope_files = await scoped.files(get_token)
+        else:
+            answer, tool_calls, references = await workiq.run_agent(get_token, question)
+            scope_files = []
     except Exception as exc:
         _results[sid] = {"question": question, "error": str(exc)}
         return RedirectResponse("/", status_code=303)
@@ -182,6 +193,7 @@ async def ask(request: Request, question: str = Form(...)):
         "answer_html": _md.render(answer),
         "references": references,
         "tool_calls": tool_calls,
+        "scope_files": scope_files,
     }
     # 結果を直接返さず GET に逃がす。ブラウザの「フォームを再送信しますか」が出なくなる。
     return RedirectResponse("/", status_code=303)
