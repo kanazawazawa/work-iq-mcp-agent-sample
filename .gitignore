@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+
+# 開発時に Work IQ MCP を直接叩くための設定。テナント固有の clientId を含むため配布しない。
+.vscode/
+
+# 検証用。トークンと社内メモなので配布しない。
+.dev_token_cache.json
+_probe.py
+NOTES.md
