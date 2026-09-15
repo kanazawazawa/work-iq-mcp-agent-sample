@@ -19,7 +19,7 @@ Work IQ は**サインインした本人の委任トークン**で呼びます�
 
 ## 前提
 
-- **テナントで Work IQ を有効化**し、従量課金ポリシーに利用者を含めておく
+- **テナントで Work IQ を有効化**しておく（サービス プリンシパルの作成と従量課金プランの割り当て）
   → [Enable your tenant for Work IQ](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/enable-work-iq)
 - Azure OpenAI のデプロイ (エージェント側のモデル)
 - Python 3.12 以降
@@ -36,12 +36,6 @@ Work IQ は**サインインした本人の委任トークン**で呼びます�
 | リダイレクト URI | `http://localhost:8000/auth/callback` |
 | クライアント シークレット | 発行して控える |
 | API のアクセス許可 | Work IQ の **`WorkIQAgent.Ask`** (委任)。管理者の同意を付与 |
-
-`WorkIQAgent.Ask` が一覧に出ない場合は、サービス プリンシパルが未作成です。
-
-```powershell
-az ad sp create --id fdcc1f02-fc51-4226-8753-f668596af7f7
-```
 
 ### 2. 設定
 
