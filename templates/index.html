@@ -12,10 +12,6 @@
            border-bottom: 1px solid #8884; padding-bottom: .5rem; margin-bottom: 1.5rem; }
   h1 { font-size: 1.1rem; margin: 0; }
   textarea { width: 100%; box-sizing: border-box; font: inherit; padding: .6rem; }
-  fieldset { border: 1px solid #8884; margin: 1rem 0; padding: .6rem 1rem; }
-  legend { font-size: .85rem; opacity: .7; }
-  label { display: block; }
-  label small { opacity: .7; }
   button { font: inherit; padding: .5rem 1.4rem; cursor: pointer; }
   button.secondary { background: none; color: inherit; border: 1px solid #8886; }
   .answer { background: #8881; padding: 1rem; border-radius: 6px; margin-top: 1.5rem; }
@@ -91,38 +87,15 @@
     {% endfor %}
   </div>
 
-  <fieldset {% if not user %}disabled{% endif %}>
-    <legend>Work IQ の使い方</legend>
-    <label>
-      <input type="radio" name="mode" value="agent_all" {% if mode not in ("agent_ask", "agent_tools", "direct_ask") %}checked{% endif %}>
-      <strong>① 自社エージェント + Work IQ 全部</strong>
-      <small>— <code>ask</code> と読み取りツールをまとめて渡す。実運用に近い形</small>
-    </label>
-    <label>
-      <input type="radio" name="mode" value="agent_ask" {% if mode == "agent_ask" %}checked{% endif %}>
-      <strong>② <code>ask</code> だけ</strong>
-      <small>— 切り分け用。横断検索と推論を Copilot 側に任せたときの挙動</small>
-    </label>
-    <label>
-      <input type="radio" name="mode" value="agent_tools" {% if mode == "agent_tools" %}checked{% endif %}>
-      <strong>③ 読み取りツールだけ</strong>
-      <small>— 切り分け用。<code>fetch</code> ほかで Graph のパスを自分で叩いたときの挙動</small>
-    </label>
-    <label>
-      <input type="radio" name="mode" value="direct_ask" {% if mode == "direct_ask" %}checked{% endif %}>
-      <strong>④ <code>ask</code> を直接呼ぶ</strong>
-      <small>— 切り分け用。モデルを介さず MCP の生の応答（参照元・会話 ID）を見る</small>
-    </label>
-    <p class="note" style="margin:.6rem 0 0">
-      ①〜③ のエージェントには <strong>Microsoft Learn MCP</strong> も一緒に渡しています。
-      職場のデータが要るのか、製品ドキュメントが要るのか、どちらも要らないのかは、エージェント自身が判断します。
-    </p>
-  </fieldset>
+  <p class="note">
+    エージェントには <strong>Work IQ MCP</strong> と <strong>Microsoft Learn MCP</strong> を渡しています。
+    どちらを使うか、そもそも使うかは、エージェント自身が判断します。
+  </p>
 
   <button type="submit" {% if not user %}disabled{% endif %}>実行</button>
   {# formnovalidate: このボタンだけ textarea の required を無視する #}
   <button type="submit" formaction="/reset" formnovalidate class="secondary"
-          {% if not user %}disabled{% endif %}>新しい会話</button>
+          {% if not user %}disabled{% endif %}>クリア</button>
   {% if not user %}<span class="note">右上から Microsoft 365 に接続してください</span>{% endif %}
   <span id="busy" class="note" hidden>実行中…（数十秒かかることがあります）</span>
 </form>
@@ -197,10 +170,6 @@
       });
     }
   </script>
-{% endif %}
-
-{% if user %}
-  <p class="note">【④のとき】会話は継続します。切り替えるときは「新しい会話」を押してください。</p>
 {% endif %}
 
 </body>

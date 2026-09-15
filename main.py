@@ -43,10 +43,6 @@ REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:8000/auth/callba
 # http://localhost では成立しない。ローカルは query、デプロイ後は form_post。
 USE_FORM_POST = REDIRECT_URI.startswith("https://")
 
-# 開発中の検証用。パスを入れるとサインイン後のトークンをそこに書く。
-# 中身は更新トークンなので本番では設定しない。
-DEV_CACHE = os.environ.get("WORKIQ_DEV_CACHE")
-
 BASE_DIR = Path(__file__).resolve().parent
 
 app = FastAPI()
@@ -154,8 +150,6 @@ async def auth_callback(request: Request):
     _caches[sid] = cache
     request.session["sid"] = sid
     request.session["user"] = result.get("id_token_claims", {}).get("name")
-    if DEV_CACHE:
-        Path(DEV_CACHE).write_text(cache.serialize(), encoding="utf-8")
     return RedirectResponse("/", status_code=303)
 
 
@@ -169,37 +163,21 @@ async def logout(request: Request):
 
 
 @app.post("/ask")
-async def ask(request: Request, question: str = Form(...), mode: str = Form("agent_all")):
+async def ask(request: Request, question: str = Form(...)):
     sid = request.session.get("sid")
     if not sid or sid not in _caches:
         return RedirectResponse("/login", status_code=303)
 
-    get_token = _token_provider(sid)
-    references: list[dict] = []
-    tool_calls: list[dict] = []
     try:
-        if mode == "direct_ask":
-            answer, conversation_id, references = await workiq.ask_direct(
-                get_token, question, request.session.get("conversation_id")
-            )
-            request.session["conversation_id"] = conversation_id
-            tool_calls = [{"name": "workiq_ask", "arguments": {"question": question}}]
-        else:
-            # 指示文はどのモードも同じ。違うのは渡すツールだけ。
-            tools = {
-                "agent_ask": workiq.ASK_TOOLS,
-                "agent_tools": workiq.READ_ONLY_TOOLS,
-            }.get(mode, workiq.ALL_TOOLS)
-            answer, tool_calls, references = await workiq.run_agent(
-                get_token, question, allowed_tools=tools
-            )
+        answer, tool_calls, references = await workiq.run_agent(
+            _token_provider(sid), question
+        )
     except Exception as exc:
-        _results[sid] = {"question": question, "mode": mode, "error": str(exc)}
+        _results[sid] = {"question": question, "error": str(exc)}
         return RedirectResponse("/", status_code=303)
 
     _results[sid] = {
         "question": question,
-        "mode": mode,
         "answer_html": _md.render(answer),
         "references": references,
         "tool_calls": tool_calls,
@@ -210,6 +188,5 @@ async def ask(request: Request, question: str = Form(...), mode: str = Form("age
 
 @app.post("/reset")
 async def reset(request: Request):
-    request.session.pop("conversation_id", None)
     _results.pop(request.session.get("sid", ""), None)
     return RedirectResponse("/", status_code=303)

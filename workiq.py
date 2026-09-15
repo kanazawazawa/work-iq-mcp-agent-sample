@@ -1,24 +1,18 @@
-"""エージェントに渡すツールと、Work IQ MCP の呼び方。
+"""Work IQ MCP を自社エージェントのツールとして渡す。
 
-    run_agent(..., ALL_TOOLS)        ① ask と読み取りツールをまとめて渡す (実運用に近い形)
-    run_agent(..., ASK_TOOLS)        ② ask だけ渡す     (切り分け用)
-    run_agent(..., READ_ONLY_TOOLS)  ③ 読み取りツールだけ (切り分け用)
-    ask_direct()                     ④ ask を直接叩く   (切り分け用。モデルを介さない)
+職場のデータとは無関係な Microsoft Learn MCP も一緒に渡している。
+Work IQ が「数あるツールの 1 つ」であり、どれを使うかをエージェントが
+選ぶことを示すため。
 
-①〜③ は指示文が同じで、違うのは渡すツールだけ。職場のデータとは無関係な
-Microsoft Learn MCP も一緒に渡す。Work IQ が「数あるツールの 1 つ」であり、
-どれを使うかをエージェントが選ぶことを示すため。
-④ は MCP の生の応答 (conversationId、参照元) を見せるもの。
-
-Work IQ はいずれも「接続した本人のトークン」で呼ぶ。アプリの資格情報では
-呼ばないので、参照できる範囲はその人が Microsoft 365 で見られる範囲と一致する。
+Work IQ は「接続した本人のトークン」で呼ぶ。アプリの資格情報では呼ばないので、
+参照できる範囲はその人が Microsoft 365 で見られる範囲と一致する。
 """
 
 from __future__ import annotations
 
 import json
 import os
-from collections.abc import Callable, Collection, Iterator
+from collections.abc import Callable, Iterator
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
@@ -34,21 +28,17 @@ SCOPE = "fdcc1f02-fc51-4226-8753-f668596af7f7/WorkIQAgent.Ask"
 # 職場のデータとは関係ない 2 つ目の情報源。認証不要。
 LEARN_MCP_URL = "https://learn.microsoft.com/api/mcp"
 
-# 読み取り系だけをモデルに見せる。書き込み系 (create_entity / update_entity /
-# delete_entity / do_action) はテナントのポリシーでも既定で止まるが、
-# コード側でも渡さないことで意図をはっきりさせる。
+# モデルに見せるツール。書き込み系 (create_entity / update_entity / delete_entity /
+# do_action) はテナントのポリシーでも既定で止まるが、コード側でも渡さない。
 # fetch_blob も読み取りだが外す。返るのは base64 の生バイトで、385KB の PDF が
 # 51 万文字になる。モデルには解釈できず、文脈と課金を食うだけになる。
-READ_ONLY_TOOLS = ["search_paths", "get_schema", "fetch", "call_function"]
-ASK_TOOLS = ["ask"]
-ALL_TOOLS = ASK_TOOLS + READ_ONLY_TOOLS
+TOOLS = ["ask", "search_paths", "get_schema", "fetch", "call_function"]
 
 # 指定しないと Work IQ は時刻を UTC で返す。
 TIME_ZONE = os.environ.get("WORKIQ_TIME_ZONE", "Asia/Tokyo")
 
-# 指示は 1 本。モードごとに変えるのは渡すツールだけにする。
-# 何ができるかはツールの説明とスキーマに書いてあるので、使い方は書かない。
-# ここに残すのはアプリ側の方針だけ。
+# 指示にはツールの使い方を書かない。何ができるかは MCP のツール説明と
+# スキーマにある。ここに書くのはアプリ側の方針だけ。
 INSTRUCTIONS = f"""あなたは利用者の仕事を助けるアシスタントです。
 利用者の職場のデータ (workiq) を主に使います。
 Microsoft 製品の仕様や手順など、公式情報が要るときは mslearn も使えます。
@@ -71,12 +61,7 @@ TokenProvider = Callable[[], str]
 _chat_client: OpenAIChatClient | None = None
 
 
-def _workiq_tool(
-    get_token: TokenProvider,
-    *,
-    allowed_tools: Collection[str],
-    description: str | None = None,
-) -> MCPStreamableHTTPTool:
+def _workiq_tool(get_token: TokenProvider) -> MCPStreamableHTTPTool:
     """Work IQ MCP サーバーを MAF のツールとして返す。
 
     allowed_tools はプロンプトでの「お願い」ではなく実際の制限なので、
@@ -90,8 +75,8 @@ def _workiq_tool(
         # リクエストのたびに呼ばれる。トークンのキャッシュと更新は MSAL 側が持つので、
         # 長く開いたままのセッションでも期限切れを気にしなくてよい。
         header_provider=lambda _kwargs: {"Authorization": f"Bearer {get_token()}"},
-        allowed_tools=allowed_tools,
-        description=description,
+        allowed_tools=TOOLS,
+        description="接続中の利用者の Microsoft 365 データにアクセスする",
         # Work IQ はプロンプトを公開しないので取得しない。
         load_prompts=False,
     )
@@ -121,23 +106,9 @@ def _json_payloads(text: str) -> Iterator[dict[str, Any]]:
             yield payload
 
 
-def _parse_ask(result: Any) -> tuple[str, str | None, list[dict[str, Any]]]:
-    """ask の応答から回答文・conversationId・参照リンクを取り出す。"""
-    blocks = _text_blocks(result)
-    for block in blocks:
-        for payload in _json_payloads(block):
-            # 実サーバーは "answer"。Learn は "response" と記載しているため両方見る。
-            answer = payload.get("answer") or payload.get("response")
-            if answer:
-                return answer, payload.get("conversationId"), _references(payload)
-
-    return "\n".join(b for b in blocks if b), None, []
-
-
 # Learn のツールリファレンスには記載が無いが、ask は引用元をこのキーで返す。
 # 返るのは文書単位のリンクと「回答に引用したか」だけで、ページ番号や抜粋は含まれない。
 REFERENCE_KEY = "application/vnd.ms-workiq.reference"
-
 
 def _display_name(url: str) -> str:
     """URL から人が読めるファイル名を作る。取れなければホスト名で代用する。"""
@@ -228,21 +199,14 @@ def _tool_calls(response: Any) -> list[dict[str, Any]]:
 
 
 async def run_agent(
-    get_token: TokenProvider,
-    question: str,
-    *,
-    allowed_tools: Collection[str],
+    get_token: TokenProvider, question: str
 ) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
     """自社エージェントに Work IQ と Microsoft Learn を持たせて答えさせる。
 
     どちらを呼ぶか、そもそも呼ぶかはモデルが決める。
     戻り値は (回答, 呼ばれたツール, 参照元)。
     """
-    workiq_tool = _workiq_tool(
-        get_token,
-        allowed_tools=allowed_tools,
-        description="接続中の利用者の Microsoft 365 データにアクセスする",
-    )
+    workiq_tool = _workiq_tool(get_token)
     learn_tool = MCPStreamableHTTPTool(
         name="mslearn",
         url=LEARN_MCP_URL,
@@ -260,22 +224,3 @@ async def run_agent(
         response = await agent.run(question)
 
     return response.text, _tool_calls(response), _agent_references(response)
-
-
-async def ask_direct(
-    get_token: TokenProvider,
-    question: str,
-    conversation_id: str | None = None,
-) -> tuple[str, str | None, list[dict[str, Any]]]:
-    """参考: `ask` を直接叩く。モデルを介さないので MCP の生の応答が見える。
-
-    戻り値の conversation_id を次の質問に渡すと会話が続く。
-    """
-    args: dict[str, Any] = {"question": question, "timeZone": TIME_ZONE}
-    if conversation_id:
-        args["conversationId"] = conversation_id
-
-    async with _workiq_tool(get_token, allowed_tools=ASK_TOOLS) as workiq:
-        result = await workiq.call_tool("ask", **args)
-
-    return _parse_ask(result)
