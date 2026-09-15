@@ -10,19 +10,13 @@ Work IQ は「接続した本人のトークン」で呼ぶ。アプリの資格
 
 from __future__ import annotations
 
-import base64
 import json
 import os
 from collections.abc import Callable, Iterator
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
-from agent_framework import (
-    Agent,
-    FunctionInvocationContext,
-    MCPStreamableHTTPTool,
-    function_middleware,
-)
+from agent_framework import Agent, MCPStreamableHTTPTool
 from agent_framework.openai import OpenAIChatClient
 from azure.identity import DefaultAzureCredential
 
@@ -41,10 +35,6 @@ TOOLS = ["ask", "search_paths", "get_schema", "fetch", "call_function"]
 
 # 指定しないと Work IQ は時刻を UTC で返す。
 TIME_ZONE = os.environ.get("WORKIQ_TIME_ZONE", "Asia/Tokyo")
-
-# SharePoint のフォルダー URL。指定すると、その直下のファイルだけを探すようになる。
-# 空なら利用者が見られる範囲すべてが対象。
-FOLDER_URL = os.environ.get("WORKIQ_FOLDER_URL", "").strip()
 
 # ツールの使い方は書かない。ここに書くのはアプリ側の方針だけ。
 INSTRUCTIONS = f"""あなたは利用者の仕事を助けるアシスタントです。
@@ -67,7 +57,6 @@ Microsoft 製品の仕様や手順など、公式情報が要るときは mslear
 TokenProvider = Callable[[], str]
 
 _chat_client: OpenAIChatClient | None = None
-_folder_files: list[str] | None = None
 
 
 def _workiq_tool(get_token: TokenProvider) -> MCPStreamableHTTPTool:
@@ -206,49 +195,6 @@ def _tool_calls(response: Any) -> list[dict[str, Any]]:
     return calls
 
 
-async def _fetch(tool: MCPStreamableHTTPTool, entity_url: str) -> list[dict[str, Any]]:
-    """fetch を 1 件呼び、中身のエンティティを取り出す。"""
-    for block in _text_blocks(await tool.call_tool("fetch", entityUrls=[entity_url])):
-        for payload in _json_payloads(block):
-            results = payload.get("results")
-            if not results:
-                continue
-            data = results[0].get("data") or {}
-            return data.get("value") or ([data] if data.get("id") else [])
-    return []
-
-
-async def _files_in_folder(tool: MCPStreamableHTTPTool, folder_url: str) -> list[str]:
-    """フォルダーの URL から、その直下にあるファイルの URL を集める。
-
-    URL をそのまま ID に使えるので、設定はブラウザーでコピーしたもの 1 行で足りる。
-    """
-    share_id = "u!" + base64.urlsafe_b64encode(folder_url.encode()).decode().rstrip("=")
-    found = await _fetch(tool, f"/shares/{share_id}/driveItem?$select=id,parentReference")
-    if not found:
-        return []
-    drive_id = found[0].get("parentReference", {}).get("driveId")
-    children = await _fetch(
-        tool, f"/drives/{drive_id}/items/{found[0]['id']}/children?$select=name,webUrl,folder&$top=100"
-    )
-    return [c["webUrl"] for c in children if c.get("webUrl") and not c.get("folder")]
-
-
-def _pin_files(urls: list[str]):
-    """ask が探す範囲を、決められたファイルだけに差し替える。
-
-    モデルが渡してきた引数を手前で書き換えるので、範囲はモデルの判断に左右されない。
-    """
-
-    @function_middleware
-    async def middleware(context: FunctionInvocationContext, next: Callable[[], Any]) -> None:
-        if context.function.name.endswith("ask"):
-            context.arguments["fileUrls"] = urls
-        await next()
-
-    return middleware
-
-
 async def run_agent(
     get_token: TokenProvider, question: str
 ) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
@@ -257,8 +203,6 @@ async def run_agent(
     どちらを呼ぶか、そもそも呼ぶかはモデルが決める。
     戻り値は (回答, 呼ばれたツール, 参照元)。
     """
-    global _folder_files
-
     workiq_tool = _workiq_tool(get_token)
     learn_tool = MCPStreamableHTTPTool(
         name="mslearn",
@@ -269,14 +213,10 @@ async def run_agent(
     )
 
     async with workiq_tool, learn_tool:
-        if FOLDER_URL and _folder_files is None:
-            _folder_files = await _files_in_folder(workiq_tool, FOLDER_URL)
-
         agent = Agent(
             client=_client(),
             instructions=INSTRUCTIONS,
             tools=[workiq_tool, learn_tool],
-            middleware=[_pin_files(_folder_files)] if _folder_files else None,
         )
         response = await agent.run(question)
 
