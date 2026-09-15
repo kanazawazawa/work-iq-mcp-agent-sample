@@ -95,3 +95,9 @@ Work IQ が公開するツールと使えるパスは [Work IQ MCP tool referenc
 - [Work IQ MCP overview](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/overview)
 - [Work IQ CLI](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/cli) — アプリ登録なしで疎通確認できます
 - [Microsoft Agent Framework](https://learn.microsoft.com/agent-framework/)
+
+## ライセンス
+
+[MIT](LICENSE)
+
+本リポジトリは個人が個人の見解で公開しているもので、所属組織の見解ではありません。
