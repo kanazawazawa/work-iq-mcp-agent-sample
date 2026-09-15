@@ -181,13 +181,13 @@ async def ask(
     request: Request,
     question: str = Form(...),
     scope: str = Form("all"),
-    use_workiq: str | None = Form(None),
-    use_learn: str | None = Form(None),
+    # チェックボックスは OFF のとき送られてこないので、既定値がそのまま OFF になる。
+    use_workiq: bool = Form(False),
+    use_learn: bool = Form(False),
 ):
-    # チェックボックスは OFF のとき送られてこない。② は Work IQ が前提。
-    workiq_on = use_workiq is not None or scope == "folder"
-    learn_on = use_learn is not None
-    request.session["mcp"] = {"workiq": workiq_on, "learn": learn_on}
+    # ② は Work IQ が前提なので、トグルの状態によらず入れる。
+    workiq_on = use_workiq or scope == "folder"
+    request.session["mcp"] = {"workiq": workiq_on, "learn": use_learn}
 
     sid = request.session.get("sid", "")
     if workiq_on and sid not in _caches:
@@ -196,11 +196,13 @@ async def ask(
     get_token = _token_provider(sid) if sid in _caches else None
     try:
         if scope == "folder":
-            answer, tool_calls, references = await scoped.run_agent(get_token, question, learn_on)
+            answer, tool_calls, references = await scoped.run_agent(
+                get_token, question, use_learn=use_learn
+            )
             scope_files = await scoped.files(get_token)
         else:
             answer, tool_calls, references = await workiq.run_agent(
-                get_token, question, workiq_on, learn_on
+                get_token, question, use_workiq=workiq_on, use_learn=use_learn
             )
             scope_files = []
     except Exception as exc:

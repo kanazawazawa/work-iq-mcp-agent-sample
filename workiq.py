@@ -60,7 +60,7 @@ TokenProvider = Callable[[], str]
 _chat_client: OpenAIChatClient | None = None
 
 
-def _workiq_tool(get_token: TokenProvider) -> MCPStreamableHTTPTool:
+def mcp_tool(get_token: TokenProvider) -> MCPStreamableHTTPTool:
     """Work IQ MCP サーバーを MAF のツールとして返す。
 
     allowed_tools はモデルに渡すツール定義そのものを絞る。トークンの権限は
@@ -102,6 +102,21 @@ def _json_payloads(text: str) -> Iterator[dict[str, Any]]:
             continue
         if isinstance(payload, dict):
             yield payload
+
+
+async def fetch(tool: MCPStreamableHTTPTool, entity_url: str) -> list[dict[str, Any]]:
+    """fetch ツールを 1 件呼び、中身のエンティティを取り出す。
+
+    コレクションならその中身、単体なら 1 件のリスト。
+    """
+    for block in _text_blocks(await tool.call_tool("fetch", entityUrls=[entity_url])):
+        for payload in _json_payloads(block):
+            results = payload.get("results")
+            if not results:
+                continue
+            data = results[0].get("data") or {}
+            return data.get("value") or ([data] if data.get("id") else [])
+    return []
 
 
 # Learn のツールリファレンスには記載が無いが、ask は引用元をこのキーで返す。
@@ -199,6 +214,7 @@ def _tool_calls(response: Any) -> list[dict[str, Any]]:
 async def run_agent(
     get_token: TokenProvider | None,
     question: str,
+    *,
     use_workiq: bool = True,
     use_learn: bool = True,
     middleware: list[Any] | None = None,
@@ -210,7 +226,7 @@ async def run_agent(
     """
     tools: list[MCPStreamableHTTPTool] = []
     if use_workiq and get_token:
-        tools.append(_workiq_tool(get_token))
+        tools.append(mcp_tool(get_token))
     if use_learn:
         tools.append(
             MCPStreamableHTTPTool(

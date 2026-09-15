@@ -2,7 +2,7 @@
 
 自社の Web アプリに載せたエージェントから、**Work IQ MCP** を数あるツールの 1 つとして呼ぶ最小サンプルです。
 
-比較用に、職場のデータとは無関係な **Microsoft Learn MCP** も一緒に渡しています。どちらを使うか、そもそも使うかはエージェントが判断します。
+比較用に、職場のデータとは無関係の **Microsoft Learn MCP** も一緒に渡しています。画面のトグルでそれぞれ付け外しできます。どちらを使うか、そもそも使うかはエージェントが判断します。
 
 Work IQ は**サインインした本人の委任トークン**で呼びます。アプリの資格情報では呼ばないので、参照できる範囲はその人が Microsoft 365 で見られる範囲と一致します。
 
@@ -53,7 +53,7 @@ az login                                        # モデル呼び出しに使う
 .venv/Scripts/python -m uvicorn main:app --reload
 ```
 
-<http://localhost:8000> を開き、右上の「接続」から Microsoft 365 にサインインします。
+<http://localhost:8000> を開き、**M365 連携** を ON にして Microsoft 365 に接続します。
 
 ## MCP をエージェントに渡す
 
@@ -79,7 +79,9 @@ async with workiq_tool, learn_tool:
 - **`header_provider`** は辞書ではなく関数です。リクエストのたびに呼ばれるので、約 1 時間で切れるアクセス トークンの更新を MSAL に任せられます。
 - **`allowed_tools`** はモデルに渡すツール定義そのものを絞ります。プロンプトで禁じるより確実で、モデルが名前を作って呼ぶこともできません。ただしクライアント側の制限で、トークンの権限は変わりません。
 
-アプリ自体ができることを絞るのはテナント側のポリシーです。Work IQ MCP は既定で書き込み操作を止めており、管理者が Microsoft 365 管理センターで有効にしたときだけ通ります。テナントによって許可が違うので、拒否された応答は再試行せずそのまま見せてください。
+トグルで MCP の数が変わるので、実際のコードは `AsyncExitStack` に積んでいます。
+
+何を許可するかはテナント側のポリシーで決まります。Microsoft 365 管理センターの **エージェント > ツール > Work IQ MCP > ポリシー** で、アクセスできる種別、ページングの可否、作成・更新・削除の可否が操作ごとに切り替わります。テナントによって違うので、拒否された応答は再試行せずそのまま見せてください。
 → [Policy governance for Work IQ MCP](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/policy-governance-mcp)
 
 Work IQ が公開するツールと使えるパスは [Work IQ MCP tool reference](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/tool-reference) と [entity model](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/entity-model) を参照してください。
@@ -92,7 +94,7 @@ Work IQ が公開するツールと使えるパスは [Work IQ MCP tool referenc
 WORKIQ_FOLDER_URL=https://contoso.sharepoint.com/sites/Sales/Shared%20Documents/提案書
 ```
 
-同じ質問を ① と ② で投げると、参照先の面倉が変わります。
+同じ質問を ① と ② で投げると、参照先の顔ぶれが変わります。
 
 やっているのは `ask` の `fileUrls` を埋めることだけです ([scoped.py](scoped.py))。モデルが引数を決めた後に差し替えるので、範囲はモデルの判断に左右されません。なお、これは検索範囲の指定であってアクセス制御ではありません。利用者が見られる範囲は変わりません。
 → [ask ツールの `fileUrls`](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/tool-reference#ask)
