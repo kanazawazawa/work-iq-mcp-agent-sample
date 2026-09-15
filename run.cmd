@@ -21,10 +21,9 @@ findstr /r /c:"^WORKIQ_CLIENT_ID=." ".env" >nul 2>&1
 if errorlevel 1 goto needconfig
 
 echo.
-echo http://localhost:8000 を開きます。
+echo http://localhost:8000 をブラウザーで開いてください。
 echo 終了するときは、このウィンドウで Ctrl+C を押してください。
 echo.
-start "" /min powershell -NoProfile -WindowStyle Hidden -Command "Start-Sleep -Seconds 4; Start-Process 'http://localhost:8000'"
 rem --reload: コードを直すと自動で反映される。無いとテンプレートだけ新しくなり食い違う。
 .venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 goto end
