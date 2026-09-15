@@ -123,17 +123,28 @@
 
 <script>
   const SIGNED_IN = {{ 'true' if user else 'false' }};
+  const box = () => document.querySelector('textarea[name=question]');
+
+  // サインインでページを離れると入力が消えるので、離れる前に預けて戻ったら書き戻す。
+  const keep = () => sessionStorage.setItem('q', box().value);
+  window.addEventListener('DOMContentLoaded', () => {
+    const saved = sessionStorage.getItem('q');
+    if (saved && !box().value) box().value = saved;
+    sessionStorage.removeItem('q');
+  });
+
   function onWorkiq(el) {
     // 未接続で ON にしたら、その場でサインインに進む。
-    if (el.checked && !SIGNED_IN) location.href = '/login';
+    if (el.checked && !SIGNED_IN) { keep(); location.href = '/login'; }
   }
   function useExample(btn) {
-    const box = document.querySelector('textarea[name=question]');
-    box.value = btn.dataset.q;
-    box.focus();
+    box().value = btn.dataset.q;
+    box().focus();
   }
   function onSubmit(event) {
     if (event.submitter.formAction.endsWith('/reset')) return;
+    // 未接続なら /ask はサインインへ飛ばす。そこでも入力を失わないように預けておく。
+    keep();
     event.submitter.disabled = true;
     document.getElementById('busy').hidden = false;
   }
