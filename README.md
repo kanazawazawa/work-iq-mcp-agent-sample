@@ -95,6 +95,7 @@ WORKIQ_FOLDER_URL=https://contoso.sharepoint.com/sites/Sales/Shared%20Documents/
 同じ質問を ① と ② で投げると、参照先の面倉が変わります。
 
 やっているのは `ask` の `fileUrls` を埋めることだけです ([scoped.py](scoped.py))。モデルが引数を決めた後に差し替えるので、範囲はモデルの判断に左右されません。なお、これは検索範囲の指定であってアクセス制御ではありません。利用者が見られる範囲は変わりません。
+→ [ask ツールの `fileUrls`](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/tool-reference#ask)
 
 ## 本番向けではありません
 
