@@ -75,14 +75,16 @@ async with workiq_tool, learn_tool:
 
 押さえておく点が 2 つあります。
 
-- **`header_provider`** はリクエストのたびに呼ばれます。トークンの更新は MSAL 側が持つので、長く開いたままのセッションでも期限切れを気にせずに済みます。
+- **`header_provider`** は辞書ではなく関数です。リクエストのたびに呼ばれるので、約 1 時間で切れるアクセス トークンの更新を MSAL に任せられます。
 - **`allowed_tools`** はプロンプトでの「お願い」ではなく実際の制限です。読み取り専用の担保はここで行います。書き込み系はテナントのポリシーでも既定で止まりますが、コード側でも渡していません。
 
 Work IQ が公開するツールと使えるパスは [Work IQ MCP tool reference](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/tool-reference) と [entity model](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/entity-model) を参照してください。
 
-## このサンプルが省いていること
+## 本番向けではありません
 
-本番に持っていくときに足すことになる部分です。
+Work IQ MCP の呼び方を示すための最小構成です。そのまま本番で使うことは想定していません。
+
+手つかずの箇所の例です。これで尽きているわけではありません。
 
 - トークンをプロセス内の辞書に置いています。再起動でサインインが切れます
 - エラー処理、レート制限、再試行
