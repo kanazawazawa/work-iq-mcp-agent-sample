@@ -78,6 +78,9 @@ async with workiq_tool, learn_tool:
 - **`header_provider`** は辞書ではなく関数です。リクエストのたびに呼ばれるので、約 1 時間で切れるアクセス トークンの更新を MSAL に任せられます。
 - **`allowed_tools`** はモデルに渡すツール定義そのものを絞ります。プロンプトで禁じるより確実で、モデルが名前を作って呼ぶこともできません。ただしクライアント側の制限で、トークンの権限は変わりません。
 
+アプリ自体ができることを絞るのはテナント側のポリシーです。Work IQ MCP は既定で書き込み操作を止めており、管理者が Microsoft 365 管理センターで有効にしたときだけ通ります。テナントによって許可が違うので、拒否された応答は再試行せずそのまま見せてください。
+→ [Policy governance for Work IQ MCP](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/policy-governance-mcp)
+
 Work IQ が公開するツールと使えるパスは [Work IQ MCP tool reference](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/tool-reference) と [entity model](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/entity-model) を参照してください。
 
 ## 本番向けではありません
