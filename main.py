@@ -21,10 +21,11 @@ from fastapi.templating import Jinja2Templates
 from markdown_it import MarkdownIt
 from starlette.middleware.sessions import SessionMiddleware
 
-import scoped
-import workiq
-
+# workiq / scoped は取り込まれた時点で環境変数を読む。先に .env を反映させる。
 load_dotenv()
+
+import scoped  # noqa: E402
+import workiq  # noqa: E402
 
 
 def _required(name: str) -> str:
