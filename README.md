@@ -79,11 +79,10 @@ async with workiq_tool, learn_tool:
     response = await agent.run(question)
 ```
 
-押さえておく点が 3 つあります。
+押さえておく点が 2 つあります。
 
 - **`header_provider`** はリクエストのたびに呼ばれます。トークンの更新は MSAL 側が持つので、長く開いたままのセッションでも期限切れを気にせずに済みます。
 - **`allowed_tools`** はプロンプトでの「お願い」ではなく実際の制限です。読み取り専用の担保はここで行います。書き込み系はテナントのポリシーでも既定で止まりますが、コード側でも渡していません。
-- **`INSTRUCTIONS` にツールの使い方は書いていません。** 何ができるかは MCP のツール説明とスキーマにあります。書いているのはアプリ側の方針だけです。
 
 Work IQ が公開するツールと使えるパスは [Work IQ MCP tool reference](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/tool-reference) と [entity model](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/entity-model) を参照してください。
 
