@@ -86,9 +86,9 @@ async with workiq_tool, learn_tool:
 
 Work IQ が公開するツールと使えるパスは [Work IQ MCP tool reference](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/tool-reference) と [entity model](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/entity-model) を参照してください。
 
-## ② 探す範囲をフォルダーに固定する
+## ② 探す資料をフォルダーに固定する
 
-`ask` は既定で利用者が見られる範囲すべてを探します。参照する資料の置き場所が決まっているなら、`.env` にそのフォルダーの URL を書くと、画面に「② 決めた資料だけ」が出ます。
+`ask` は既定で利用者が見られる資料すべてを探します。参照する資料の置き場所が決まっているなら、`.env` にそのフォルダーの URL を書くと、画面に「② 決めた資料だけ」が出ます。
 
 ```
 WORKIQ_FOLDER_URL=https://contoso.sharepoint.com/sites/Sales/Shared%20Documents/提案書
@@ -96,8 +96,13 @@ WORKIQ_FOLDER_URL=https://contoso.sharepoint.com/sites/Sales/Shared%20Documents/
 
 同じ質問を ① と ② で投げると、参照先の顔ぶれが変わります。
 
-やっているのは `ask` の `fileUrls` を埋めることだけです ([scoped.py](scoped.py))。モデルが引数を決めた後に差し替えるので、範囲はモデルの判断に左右されません。なお、これは検索範囲の指定であってアクセス制御ではありません。利用者が見られる範囲は変わりません。
+やっているのは `ask` の `fileUrls` を埋めることだけです ([scoped.py](scoped.py))。モデルが引数を決めた後に差し替えるので、範囲はモデルの判断に左右されません。
 → [ask ツールの `fileUrls`](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/tool-reference#ask)
+
+注意点が 2 つあります。
+
+- **絞れるのはファイルだけです。** メール・予定・チャットは ② でもこれまでどおり対象になります。種別ごとに止めるならテナント ポリシーの「パス アクセス」側です。
+- **アクセス制御ではありません。** 検索範囲の指定であって、利用者が見られる範囲は変わりません。
 
 ## 本番向けではありません
 
