@@ -83,6 +83,16 @@ async with workiq_tool, learn_tool:
 
 Work IQ が公開するツールと使えるパスは [Work IQ MCP tool reference](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/tool-reference) と [entity model](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/entity-model) を参照してください。
 
+## 探す範囲をフォルダーに固定する
+
+`ask` は既定で利用者が見られる範囲すべてを探します。参照する資料の置き場所が決まっているなら、`.env` にそのフォルダーの URL を書くと、直下のファイルだけを探すようになります。
+
+```
+WORKIQ_FOLDER_URL=https://contoso.sharepoint.com/sites/Sales/Shared%20Documents/提案書
+```
+
+`ask` の `fileUrls` を埋めているだけです。モデルが引数を決める前に差し替えるので、範囲はモデルの判断に左右されません。なお、これは検索範囲の指定であってアクセス制御ではありません。利用者が見られる範囲は変わりません。
+
 ## 本番向けではありません
 
 Work IQ MCP の呼び方を示すための最小構成です。そのまま本番で使うことは想定していません。

@@ -8,5 +8,5 @@ __pycache__/
 
 # 検証用。トークンと社内メモなので配布しない。
 .dev_token_cache.json
-_probe.py
+_*.py
 NOTES.md
