@@ -62,8 +62,8 @@ _chat_client: OpenAIChatClient | None = None
 def _workiq_tool(get_token: TokenProvider) -> MCPStreamableHTTPTool:
     """Work IQ MCP サーバーを MAF のツールとして返す。
 
-    allowed_tools はプロンプトでの「お願い」ではなく実際の制限なので、
-    読み取り専用の担保に使える。
+    allowed_tools はモデルに渡すツール定義そのものを絞る。トークンの権限は
+    変わらないので、セキュリティ境界ではない。
     """
     return MCPStreamableHTTPTool(
         name="workiq",
