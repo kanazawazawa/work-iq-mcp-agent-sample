@@ -55,7 +55,8 @@ app.add_middleware(
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 # 回答は LLM が書いた文字列なので HTML として描画する前に無害化する。
-# html=False で生 HTML はエスケープされ、javascript:/data: リンクも a 要素にならない。
+# html=False で生 HTML はエスケープされる。javascript:/data: リンクは
+# markdown-it の既定のリンク検証が別途弾く。
 _md = MarkdownIt("commonmark", {"html": False, "linkify": False})
 
 

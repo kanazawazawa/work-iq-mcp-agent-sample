@@ -25,20 +25,18 @@ from azure.identity import DefaultAzureCredential
 MCP_URL = "https://workiq.svc.cloud.microsoft/mcp"
 SCOPE = "fdcc1f02-fc51-4226-8753-f668596af7f7/WorkIQAgent.Ask"
 
-# 職場のデータとは関係ない 2 つ目の情報源。認証不要。
+# 認証不要の 2 つ目の情報源。
 LEARN_MCP_URL = "https://learn.microsoft.com/api/mcp"
 
 # モデルに見せるツール。書き込み系 (create_entity / update_entity / delete_entity /
-# do_action) はテナントのポリシーでも既定で止まるが、コード側でも渡さない。
-# fetch_blob も読み取りだが外す。返るのは base64 の生バイトで、385KB の PDF が
-# 51 万文字になる。モデルには解釈できず、文脈と課金を食うだけになる。
+# do_action) は渡さない。fetch_blob も読み取りだが、返るのは base64 の生バイトで
+# モデルが解釈できないため外す。
 TOOLS = ["ask", "search_paths", "get_schema", "fetch", "call_function"]
 
 # 指定しないと Work IQ は時刻を UTC で返す。
 TIME_ZONE = os.environ.get("WORKIQ_TIME_ZONE", "Asia/Tokyo")
 
-# 指示にはツールの使い方を書かない。何ができるかは MCP のツール説明と
-# スキーマにある。ここに書くのはアプリ側の方針だけ。
+# ツールの使い方は書かない。ここに書くのはアプリ側の方針だけ。
 INSTRUCTIONS = f"""あなたは利用者の仕事を助けるアシスタントです。
 利用者の職場のデータ (workiq) を主に使います。
 Microsoft 製品の仕様や手順など、公式情報が要るときは mslearn も使えます。
@@ -77,7 +75,6 @@ def _workiq_tool(get_token: TokenProvider) -> MCPStreamableHTTPTool:
         header_provider=lambda _kwargs: {"Authorization": f"Bearer {get_token()}"},
         allowed_tools=TOOLS,
         description="接続中の利用者の Microsoft 365 データにアクセスする",
-        # Work IQ はプロンプトを公開しないので取得しない。
         load_prompts=False,
     )
 
@@ -107,8 +104,8 @@ def _json_payloads(text: str) -> Iterator[dict[str, Any]]:
 
 
 # Learn のツールリファレンスには記載が無いが、ask は引用元をこのキーで返す。
-# 返るのは文書単位のリンクと「回答に引用したか」だけで、ページ番号や抜粋は含まれない。
 REFERENCE_KEY = "application/vnd.ms-workiq.reference"
+
 
 def _display_name(url: str) -> str:
     """URL から人が読めるファイル名を作る。取れなければホスト名で代用する。"""
