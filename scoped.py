@@ -82,8 +82,10 @@ def pin_files(urls: list[str]):
 
 
 async def run_agent(
-    get_token: workiq.TokenProvider, question: str
+    get_token: workiq.TokenProvider, question: str, use_learn: bool = True
 ) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
     """決めたフォルダーの中だけを探して答えさせる。"""
     urls = [f["url"] for f in await files(get_token)]
-    return await workiq.run_agent(get_token, question, middleware=[pin_files(urls)])
+    return await workiq.run_agent(
+        get_token, question, use_learn=use_learn, middleware=[pin_files(urls)]
+    )

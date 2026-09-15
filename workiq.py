@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 from collections.abc import Callable, Iterator
+from contextlib import AsyncExitStack
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
 
@@ -196,27 +197,40 @@ def _tool_calls(response: Any) -> list[dict[str, Any]]:
 
 
 async def run_agent(
-    get_token: TokenProvider, question: str, middleware: list[Any] | None = None
+    get_token: TokenProvider | None,
+    question: str,
+    use_workiq: bool = True,
+    use_learn: bool = True,
+    middleware: list[Any] | None = None,
 ) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
-    """自社エージェントに Work IQ と Microsoft Learn を持たせて答えさせる。
+    """渡された MCP をツールとして持たせ、自社エージェントに答えさせる。
 
-    どちらを呼ぶか、そもそも呼ぶかはモデルが決める。
+    どれを呼ぶか、そもそも呼ぶかはモデルが決める。両方外しても動く。
     戻り値は (回答, 呼ばれたツール, 参照元)。
     """
-    workiq_tool = _workiq_tool(get_token)
-    learn_tool = MCPStreamableHTTPTool(
-        name="mslearn",
-        url=LEARN_MCP_URL,
-        tool_name_prefix="mslearn",
-        description="Microsoft の公式技術ドキュメントを検索・取得する",
-        load_prompts=False,
-    )
+    tools: list[MCPStreamableHTTPTool] = []
+    if use_workiq and get_token:
+        tools.append(_workiq_tool(get_token))
+    if use_learn:
+        tools.append(
+            MCPStreamableHTTPTool(
+                name="mslearn",
+                url=LEARN_MCP_URL,
+                tool_name_prefix="mslearn",
+                description="Microsoft の公式技術ドキュメントを検索・取得する",
+                load_prompts=False,
+            )
+        )
 
-    async with workiq_tool, learn_tool:
+    async with AsyncExitStack() as stack:
+        # ツールの個数が変わるので async with を並べずに積む。
+        for tool in tools:
+            await stack.enter_async_context(tool)
+
         agent = Agent(
             client=_client(),
             instructions=INSTRUCTIONS,
-            tools=[workiq_tool, learn_tool],
+            tools=tools,
             middleware=middleware,
         )
         response = await agent.run(question)

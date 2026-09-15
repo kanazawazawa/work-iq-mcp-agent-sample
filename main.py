@@ -109,12 +109,17 @@ def _token_provider(sid: str) -> workiq.TokenProvider:
 
 
 def _render(request: Request, **extra):
+    user = request.session.get("user")
+    # 未接続なら M365 側は既定 OFF。一度実行したらそのときの状態を覚える。
+    mcp = request.session.get("mcp") or {"workiq": bool(user), "learn": True}
     return templates.TemplateResponse(
         request,
         "index.html",
         {
-            "user": request.session.get("user"),
+            "user": user,
             "examples": EXAMPLES,
+            "use_workiq": mcp["workiq"],
+            "use_learn": mcp["learn"],
             # WORKIQ_FOLDER_URL が未設定なら ② は出さない。
             "scoped": bool(scoped.FOLDER_URL),
             **extra,
@@ -171,18 +176,31 @@ async def logout(request: Request):
 
 
 @app.post("/ask")
-async def ask(request: Request, question: str = Form(...), scope: str = Form("all")):
-    sid = request.session.get("sid")
-    if not sid or sid not in _caches:
+async def ask(
+    request: Request,
+    question: str = Form(...),
+    scope: str = Form("all"),
+    use_workiq: str | None = Form(None),
+    use_learn: str | None = Form(None),
+):
+    # チェックボックスは OFF のとき送られてこない。② は Work IQ が前提。
+    workiq_on = use_workiq is not None or scope == "folder"
+    learn_on = use_learn is not None
+    request.session["mcp"] = {"workiq": workiq_on, "learn": learn_on}
+
+    sid = request.session.get("sid", "")
+    if workiq_on and sid not in _caches:
         return RedirectResponse("/login", status_code=303)
 
-    get_token = _token_provider(sid)
+    get_token = _token_provider(sid) if sid in _caches else None
     try:
         if scope == "folder":
-            answer, tool_calls, references = await scoped.run_agent(get_token, question)
+            answer, tool_calls, references = await scoped.run_agent(get_token, question, learn_on)
             scope_files = await scoped.files(get_token)
         else:
-            answer, tool_calls, references = await workiq.run_agent(get_token, question)
+            answer, tool_calls, references = await workiq.run_agent(
+                get_token, question, workiq_on, learn_on
+            )
             scope_files = []
     except Exception as exc:
         _results[sid] = {"question": question, "error": str(exc)}

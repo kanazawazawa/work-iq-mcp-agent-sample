@@ -49,6 +49,13 @@
   .dot.off { background: #999; }
   .banner { border: 1px solid #8884; border-radius: 6px; padding: .8rem 1rem;
             margin-bottom: 1.5rem; font-size: .9rem; }
+  .tools { display: flex; flex-wrap: wrap; gap: .6rem; margin-bottom: .8rem; }
+  .toggle { display: flex; align-items: center; gap: .45rem; font-size: .9rem;
+            border: 1px solid #8886; border-radius: 999px; padding: .3rem 1rem;
+            cursor: pointer; user-select: none; }
+  .toggle input { accent-color: #2a2; width: 1rem; height: 1rem; cursor: pointer; margin: 0; }
+  .toggle:not(:has(:checked)) { opacity: .5; }
+  .toggle .note { margin-left: .1rem; }
   form[disabled] { opacity: .5; }
 </style>
 </head>
@@ -62,53 +69,64 @@
       <a href="/logout">切断</a>
     {% else %}
       <span class="dot off"></span> Microsoft 365: 未接続
-      <a href="/login"><button type="button">接続</button></a>
     {% endif %}
   </span>
 </header>
 
 {% if not user %}
   <div class="banner">
-    右上の「接続」は、このアプリへのログインではありません。
-    <strong>職場のデータに繋ぐため</strong>のものです。
+    <strong>M365 連携</strong> を ON にすると Microsoft 365 に接続します。
+    これはこのアプリへのログインではなく、<strong>職場のデータに繋ぐため</strong>のものです。
     接続すると、<strong>その人が Microsoft 365 で見られる範囲だけ</strong>が対象になります。
   </div>
 {% endif %}
 
 <form method="post" action="/ask" onsubmit="onSubmit(event)">
+  <div class="tools">
+    <label class="toggle">
+      <input type="checkbox" name="use_workiq" onchange="onWorkiq(this)"
+             {% if use_workiq %}checked{% endif %}>
+      M365 連携 <span class="note">Work IQ MCP</span>
+    </label>
+    <label class="toggle">
+      <input type="checkbox" name="use_learn" {% if use_learn %}checked{% endif %}>
+      Microsoft Learn <span class="note">Learn MCP</span>
+    </label>
+  </div>
+
   <textarea name="question" rows="3" required
-            placeholder="例: 今週の私の予定を教えて"
-            {% if not user %}disabled{% endif %}>{{ question or "" }}</textarea>
+            placeholder="例: 今週の私の予定を教えて">{{ question or "" }}</textarea>
 
   <div class="examples">
     {% for label, text in examples %}
-      <button type="button" {% if not user %}disabled{% endif %}
-              onclick="useExample(this)" data-q="{{ text }}"><b>{{ label }}</b>{{ text }}</button>
+      <button type="button" onclick="useExample(this)" data-q="{{ text }}"><b>{{ label }}</b>{{ text }}</button>
     {% endfor %}
   </div>
 
   <p class="note">
-    エージェントには <strong>Work IQ MCP</strong> と <strong>Microsoft Learn MCP</strong> を渡しています。
+    トグルで入れた MCP だけがエージェントのツールになります。
     どちらを使うか、そもそも使うかは、エージェント自身が判断します。
     {% if scoped %}
     <br>② を押すと、あらかじめ決めておいたフォルダーの中だけを探します。
     {% endif %}
   </p>
 
-  <button type="submit" name="scope" value="all" {% if not user %}disabled{% endif %}>
+  <button type="submit" name="scope" value="all">
     {% if scoped %}① {% endif %}実行</button>
   {% if scoped %}
-    <button type="submit" name="scope" value="folder" {% if not user %}disabled{% endif %}>
-      ② 決めた資料だけ</button>
+    <button type="submit" name="scope" value="folder">② 決めた資料だけ</button>
   {% endif %}
   {# formnovalidate: このボタンだけ textarea の required を無視する #}
-  <button type="submit" formaction="/reset" formnovalidate class="secondary"
-          {% if not user %}disabled{% endif %}>クリア</button>
-  {% if not user %}<span class="note">右上から Microsoft 365 に接続してください</span>{% endif %}
+  <button type="submit" formaction="/reset" formnovalidate class="secondary">クリア</button>
   <span id="busy" class="note" hidden>実行中…（数十秒かかることがあります）</span>
 </form>
 
 <script>
+  const SIGNED_IN = {{ 'true' if user else 'false' }};
+  function onWorkiq(el) {
+    // 未接続で ON にしたら、その場でサインインに進む。
+    if (el.checked && !SIGNED_IN) location.href = '/login';
+  }
   function useExample(btn) {
     const box = document.querySelector('textarea[name=question]');
     box.value = btn.dataset.q;
