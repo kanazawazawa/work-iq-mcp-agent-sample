@@ -20,9 +20,10 @@ Work IQ は**サインインした本人の委任トークン**で呼びます�
 
 ## 前提
 
-- **テナントで Work IQ を有効化**しておく（サービス プリンシパルの作成と従量課金プランの割り当て）
-  → [Enable your tenant for Work IQ](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/enable-work-iq)
+- **従量課金プランを用意**して、使う利用者を割り当てておく
   → [Copilot クレジットの従量課金とコスト管理](https://learn.microsoft.com/microsoft-365/copilot/usage-based-billing-overview-copilot-credits)
+- **テナントで Work IQ を有効化**しておく（サービス プリンシパルの作成。全体管理者が 1 回だけ）
+  → [Enable your tenant for Work IQ](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/enable-work-iq)
 - Azure OpenAI のデプロイ (エージェント側のモデル)
 - Python 3.12 以降（動作確認は 3.14）
 
