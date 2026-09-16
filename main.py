@@ -231,5 +231,5 @@ async def ask(
         except Exception as exc:
             yield _line({"type": "error", "message": str(exc)})
 
-    # 回答が出るまで 1 分以上かかるので、途中経過を流しながら返す。
+    # 回答が出るまで時間がかかるので、途中経過を流しながら返す。
     return StreamingResponse(events(), media_type="application/x-ndjson")

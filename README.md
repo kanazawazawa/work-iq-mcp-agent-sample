@@ -4,7 +4,7 @@
 
 比較用に、職場のデータとは無関係の **Microsoft Learn MCP** も一緒に渡しています。画面のトグルでそれぞれ付け外しできます。どちらを使うか、そもそも使うかはエージェントが判断します。
 
-Work IQ は**サインインした本人の委任トークン**で呼びます。アプリの資格情報では呼ばないので、参照できる範囲はその人が Microsoft 365 で見られる範囲と一致します。
+Work IQ は**サインインした本人の委任トークン**で呼びます。アプリの資格情報では呼ばないので、参照できる範囲がその人の Microsoft 365 の権限を超えることはありません。
 
 ```
 ブラウザ ──> FastAPI ──> Microsoft Agent Framework ──┬── Work IQ MCP      (本人のトークン)
@@ -14,16 +14,16 @@ Work IQ は**サインインした本人の委任トークン**で呼びます�
 | ファイル | 中身 |
 | --- | --- |
 | [workiq.py](workiq.py) | MCP ツールの組み立てとエージェント実行 |
-| [scoped.py](scoped.py) | 探す範囲を決めたフォルダーに固定する (任意) |
+| [scoped.py](scoped.py) | 決めたフォルダーの資料を先に見せる (任意) |
 | [main.py](main.py) | サインイン (MSAL)、ルーティング |
-| [templates/index.html](templates/index.html) | 画面 |
+| [templates/](templates) | 画面 |
 
 ## 前提
 
 - **テナントで Work IQ を有効化**しておく（サービス プリンシパルの作成と従量課金プランの割り当て）
   → [Enable your tenant for Work IQ](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/enable-work-iq)
 - Azure OpenAI のデプロイ (エージェント側のモデル)
-- Python 3.12 以降
+- Python 3.12 以降（動作確認は 3.14）
 
 ## セットアップ
 
@@ -76,7 +76,7 @@ async with workiq_tool, learn_tool:
 
 押さえておく点が 2 つあります。
 
-- **`header_provider`** は辞書ではなく関数です。リクエストのたびに呼ばれるので、約 1 時間で切れるアクセス トークンの更新を MSAL に任せられます。
+- **`header_provider`** は辞書ではなく関数です。リクエストのたびに呼ばれるので、アクセス トークンの期限切れを MSAL に任せられます。
 - **`allowed_tools`** はモデルに渡すツール定義そのものを絞ります。プロンプトで禁じるより確実で、モデルが名前を作って呼ぶこともできません。ただしクライアント側の制限で、トークンの権限は変わりません。
 
 トグルで MCP の数が変わるので、実際のコードは `AsyncExitStack` に積んでいます。
