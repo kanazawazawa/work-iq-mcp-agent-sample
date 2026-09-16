@@ -55,6 +55,11 @@
   .toggle input { accent-color: #2a2; width: 1rem; height: 1rem; cursor: pointer; margin: 0; }
   .toggle:not(:has(:checked)) { opacity: .5; }
   .toggle .note { margin-left: .1rem; }
+  .log { font-size: .85rem; opacity: .75; margin-top: 1.5rem;
+         border-left: 3px solid #8886; padding-left: .8rem; }
+  .log div { margin: .15rem 0; }
+  .log.error { border-left-color: #c33; color: #c33; opacity: 1; }
+  #stream { white-space: pre-wrap; }
 </style>
 </head>
 <body>
@@ -115,13 +120,17 @@
     <button type="submit" name="scope" value="folder">② 決めた資料だけ</button>
   {% endif %}
   {# formnovalidate: このボタンだけ textarea の required を無視する #}
-  <button type="submit" formaction="/reset" formnovalidate class="secondary">クリア</button>
-  <span id="busy" class="note" hidden>実行中…（数十秒かかることがあります）</span>
+  <button type="button" class="secondary" onclick="clearAll()" formnovalidate>クリア</button>
 </form>
+
+<div id="log" class="log" hidden></div>
+<div id="stream" class="answer" hidden></div>
+<div id="result"></div>
 
 <script>
   const SIGNED_IN = {{ 'true' if user else 'false' }};
   const box = () => document.querySelector('textarea[name=question]');
+  const $ = (id) => document.getElementById(id);
 
   // サインインでページを離れると入力が消えるので、離れる前に預けて戻ったら書き戻す。
   const keep = () => sessionStorage.setItem('q', box().value);
@@ -139,82 +148,92 @@
     box().value = btn.dataset.q;
     box().focus();
   }
-  function onSubmit(event) {
-    if (event.submitter.formAction.endsWith('/reset')) return;
-    // 未接続なら /ask はサインインへ飛ばす。そこでも入力を失わないように預けておく。
+  function clearAll() {
+    box().value = '';
+    for (const id of ['log', 'stream']) { $(id).innerHTML = ''; $(id).hidden = true; }
+    $('result').innerHTML = '';
+  }
+  function copyAnswer(btn) {
+    navigator.clipboard.writeText($('answer').innerText).then(() => {
+      btn.textContent = 'コピーしました';
+      setTimeout(() => { btn.textContent = 'コピー'; }, 1500);
+    });
+  }
+
+  let timer = null;
+
+  function log(text, spin) {
+    const line = document.createElement('div');
+    line.textContent = text;
+    $('log').appendChild(line);
+    clearInterval(timer);
+    if (!spin) return;
+    // 沈黙が長いので、待っている間は経過秒を出しておく。
+    const start = Date.now();
+    timer = setInterval(() => {
+      line.textContent = `${text} ${Math.round((Date.now() - start) / 1000)} 秒経過`;
+    }, 1000);
+  }
+
+  async function onSubmit(event) {
+    event.preventDefault();
     keep();
-    event.submitter.disabled = true;
-    document.getElementById('busy').hidden = false;
+    $('result').innerHTML = '';
+    $('log').innerHTML = ''; $('log').hidden = false; $('log').classList.remove('error');
+    $('stream').innerHTML = ''; $('stream').hidden = false;
+    log('考えています…', true);
+
+    const form = event.target;
+    const data = new FormData(form);
+    data.set('scope', event.submitter.value);
+
+    let response;
+    try {
+      response = await fetch('/ask', { method: 'POST', body: data });
+    } catch (err) {
+      clearInterval(timer);
+      log(`通信に失敗しました: ${err}`);
+      return;
+    }
+
+    const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buffer = '';
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += value;
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (line.trim()) handle(JSON.parse(line));
+      }
+    }
+    clearInterval(timer);
+  }
+
+  function handle(event) {
+    if (event.type === 'login') {
+      location.href = '/login';
+    } else if (event.type === 'scope') {
+      log(`${event.name} の ${event.count} 件に絞りました`);
+      log('考えています…', true);
+    } else if (event.type === 'tool') {
+      log(`${event.name} を呼びました`, true);
+    } else if (event.type === 'result') {
+      log('結果が返りました');
+    } else if (event.type === 'text') {
+      $('stream').textContent += event.delta;
+    } else if (event.type === 'done') {
+      $('stream').hidden = true;
+      $('result').innerHTML = event.html;
+    } else if (event.type === 'error') {
+      $('stream').hidden = true;
+      $('result').innerHTML = '';
+      log(event.message);
+      $('log').classList.add('error');
+    }
   }
 </script>
-
-{% if error %}<div class="answer error">{{ error }}</div>{% endif %}
-{% if answer_html %}
-  {% if scope_files %}
-    <div class="calls">
-      <span class="note">探した範囲:</span>
-      <span class="badge">
-        <a href="{{ folder_url }}" target="_blank" rel="noopener noreferrer">{{ folder_name }}</a>
-        の {{ scope_files|length }} 件
-      </span>
-    </div>
-  {% endif %}
-  <div class="calls">
-    <span class="note">呼ばれたツール:</span>
-    {% if tool_calls %}
-      {% for call in tool_calls %}<span class="badge">{{ call.name }}</span>{% endfor %}
-    {% else %}
-      <span class="badge none">なし（モデルが直接回答）</span>
-    {% endif %}
-  </div>
-  {% if tool_calls %}
-    <details>
-      <summary class="note">ツールに渡した内容</summary>
-      <ul class="refs">
-        {% for call in tool_calls %}
-          <li><code>{{ call.name }}</code>
-            {% for key, value in call.arguments.items() %}
-              <div><span class="note">{{ key }}:</span> {{ value }}</div>
-            {% endfor %}
-          </li>
-        {% endfor %}
-      </ul>
-    </details>
-  {% endif %}
-
-  <div class="result">
-    <button type="button" class="copy" onclick="copyAnswer(this)">コピー</button>
-    <div class="answer" id="answer">{{ answer_html|safe }}</div>
-  </div>
-
-  {% if references %}
-    <details open>
-      <summary class="note">参照元 {{ references|length }} 件</summary>
-      <ul class="refs">
-        {% for ref in references %}
-          <li>
-            {% if ref.cited %}<span class="cited">引用</span>{% endif %}
-            <a href="{{ ref.url }}" target="_blank" rel="noopener noreferrer">{{ ref.name }}</a>
-            {% if ref.label %}<span class="label">{{ ref.label }}</span>{% endif %}
-          </li>
-        {% endfor %}
-      </ul>
-      <p class="note">
-        引用なしは、探索されたが回答に使われなかった候補です。
-        リンクを開けるのは、その人がもともと見られるファイルだからです。
-      </p>
-    </details>
-  {% endif %}
-
-  <script>
-    function copyAnswer(btn) {
-      navigator.clipboard.writeText(document.getElementById('answer').innerText).then(() => {
-        btn.textContent = 'コピーしました';
-        setTimeout(() => { btn.textContent = 'コピー'; }, 1500);
-      });
-    }
-  </script>
-{% endif %}
 
 </body>
 </html>

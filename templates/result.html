@@ -1,0 +1,58 @@
+{# 実行が終わったあとに差し込む部分。/ask がこれだけを描画して返す。 #}
+{% if scope %}
+  <div class="calls">
+    <span class="note">探した範囲:</span>
+    <span class="badge">
+      <a href="{{ scope.url }}" target="_blank" rel="noopener noreferrer">{{ scope.name }}</a>
+      の {{ scope.count }} 件
+    </span>
+  </div>
+{% endif %}
+
+<div class="calls">
+  <span class="note">呼ばれたツール:</span>
+  {% if tool_calls %}
+    {% for call in tool_calls %}<span class="badge">{{ call.name }}</span>{% endfor %}
+  {% else %}
+    <span class="badge none">なし（モデルが直接回答）</span>
+  {% endif %}
+</div>
+
+{% if tool_calls %}
+  <details>
+    <summary class="note">ツールに渡した内容</summary>
+    <ul class="refs">
+      {% for call in tool_calls %}
+        <li><code>{{ call.name }}</code>
+          {% for key, value in call.arguments.items() %}
+            <div><span class="note">{{ key }}:</span> {{ value }}</div>
+          {% endfor %}
+        </li>
+      {% endfor %}
+    </ul>
+  </details>
+{% endif %}
+
+<div class="result">
+  <button type="button" class="copy" onclick="copyAnswer(this)">コピー</button>
+  <div class="answer" id="answer">{{ answer_html|safe }}</div>
+</div>
+
+{% if references %}
+  <details open>
+    <summary class="note">参照元 {{ references|length }} 件</summary>
+    <ul class="refs">
+      {% for ref in references %}
+        <li>
+          {% if ref.cited %}<span class="cited">引用</span>{% endif %}
+          <a href="{{ ref.url }}" target="_blank" rel="noopener noreferrer">{{ ref.name }}</a>
+          {% if ref.label %}<span class="label">{{ ref.label }}</span>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="note">
+      引用なしは、探索されたが回答に使われなかった候補です。
+      リンクを開けるのは、その人がもともと見られるファイルだからです。
+    </p>
+  </details>
+{% endif %}

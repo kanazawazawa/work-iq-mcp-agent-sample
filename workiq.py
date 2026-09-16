@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import AsyncExitStack
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlsplit
@@ -211,18 +211,18 @@ def _tool_calls(response: Any) -> list[dict[str, Any]]:
     return calls
 
 
-async def run_agent(
+async def run_agent_stream(
     get_token: TokenProvider | None,
     question: str,
     *,
     use_workiq: bool = True,
     use_learn: bool = True,
     middleware: list[Any] | None = None,
-) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
+) -> AsyncIterator[dict[str, Any]]:
     """渡された MCP をツールとして持たせ、自社エージェントに答えさせる。
 
     どれを呼ぶか、そもそも呼ぶかはモデルが決める。両方外しても動く。
-    戻り値は (回答, 呼ばれたツール, 参照元)。
+    進み具合を順に返し、最後に done で回答・呼ばれたツール・参照元をまとめて返す。
     """
     tools: list[MCPStreamableHTTPTool] = []
     if use_workiq and get_token:
@@ -249,6 +249,44 @@ async def run_agent(
             tools=tools,
             middleware=middleware,
         )
-        response = await agent.run(question)
+        stream = agent.run(question, stream=True)
 
-    return response.text, _tool_calls(response), _agent_references(response)
+        seen: set[str] = set()
+        async for update in stream:
+            for content in update.contents or []:
+                kind = getattr(content, "type", None)
+                if kind == "text" and content.text:
+                    yield {"type": "text", "delta": content.text}
+                elif kind == "function_call":
+                    # 引数が分割で届くので、同じ呼び出しは 1 回だけ知らせる。
+                    if content.call_id not in seen:
+                        seen.add(content.call_id)
+                        yield {"type": "tool", "name": content.name}
+                elif kind == "function_result":
+                    yield {"type": "result"}
+
+        response = await stream.get_final_response()
+
+    yield {
+        "type": "done",
+        "answer": response.text,
+        "tool_calls": _tool_calls(response),
+        "references": _agent_references(response),
+    }
+
+
+async def run_agent(
+    get_token: TokenProvider | None,
+    question: str,
+    *,
+    use_workiq: bool = True,
+    use_learn: bool = True,
+    middleware: list[Any] | None = None,
+) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
+    """run_agent_stream の結果だけが欲しいときに使う。"""
+    async for event in run_agent_stream(
+        get_token, question, use_workiq=use_workiq, use_learn=use_learn, middleware=middleware
+    ):
+        if event["type"] == "done":
+            return event["answer"], event["tool_calls"], event["references"]
+    return "", [], []

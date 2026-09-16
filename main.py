@@ -9,6 +9,7 @@ SPA も On-Behalf-Of も使わない。サーバー側の認可コードフロ�
 
 from __future__ import annotations
 
+import json
 import os
 import secrets
 from pathlib import Path
@@ -16,7 +17,7 @@ from pathlib import Path
 import msal
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from markdown_it import MarkdownIt
 from starlette.middleware.sessions import SessionMiddleware
@@ -74,10 +75,6 @@ _md.add_render_rule("link_open", _external_link)
 # サンプルなので再起動すると全員サインインし直しになる。
 _caches: dict[str, msal.SerializableTokenCache] = {}
 
-# 直前の実行結果。POST の応答ではなくリダイレクト先の GET で見せるために一旦置く。
-# cookie には入れない（回答は 4KB を超えうる）。
-_results: dict[str, dict] = {}
-
 # クリックで入力欄に入る質問例。想定する情報源が違うものを並べている。
 EXAMPLES = [
     ("公式ドキュメント", "Azure AI Search と Foundry IQ の違いは何？"),
@@ -89,6 +86,21 @@ EXAMPLES = [
 def _msal(cache: msal.SerializableTokenCache | None = None) -> msal.ConfidentialClientApplication:
     return msal.ConfidentialClientApplication(
         CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET, token_cache=cache
+    )
+
+
+def _line(event: dict) -> str:
+    """1 行 1 JSON で流す。ブラウザー側は改行で区切って読む。"""
+    return json.dumps(event, ensure_ascii=False) + "\n"
+
+
+def _result_html(done: dict, folder: dict | None) -> str:
+    """結果の表示はサーバー側で組む。JS に同じ描画を書かないで済む。"""
+    return templates.get_template("result.html").render(
+        answer_html=_md.render(done["answer"]),
+        tool_calls=done["tool_calls"],
+        references=done["references"],
+        scope=folder,
     )
 
 
@@ -132,8 +144,7 @@ def _render(request: Request, **extra):
 
 @app.get("/")
 async def index(request: Request):
-    # 直前の結果は一度だけ見せて捨てる。再読込しても同じ質問が再実行されない。
-    return _render(request, **_results.pop(request.session.get("sid", ""), {}))
+    return _render(request)
 
 
 @app.get("/login")
@@ -171,9 +182,7 @@ async def auth_callback(request: Request):
 
 @app.get("/logout")
 async def logout(request: Request):
-    sid = request.session.get("sid", "")
-    _caches.pop(sid, None)
-    _results.pop(sid, None)
+    _caches.pop(request.session.get("sid", ""), None)
     request.session.clear()
     return RedirectResponse("/", status_code=303)
 
@@ -190,39 +199,32 @@ async def ask(
     # ② は Work IQ が前提なので、トグルの状態によらず入れる。
     workiq_on = use_workiq or scope == "folder"
     request.session["mcp"] = {"workiq": workiq_on, "learn": use_learn}
-
     sid = request.session.get("sid", "")
-    if workiq_on and sid not in _caches:
-        return RedirectResponse("/login", status_code=303)
 
-    get_token = _token_provider(sid) if sid in _caches else None
-    try:
-        if scope == "folder":
-            answer, tool_calls, references = await scoped.run_agent(
-                get_token, question, use_learn=use_learn
-            )
-            scope_files = await scoped.files(get_token)
-        else:
-            answer, tool_calls, references = await workiq.run_agent(
+    async def events():
+        if workiq_on and sid not in _caches:
+            yield _line({"type": "login"})
+            return
+
+        get_token = _token_provider(sid) if sid in _caches else None
+        stream = (
+            scoped.run_agent_stream(get_token, question, use_learn=use_learn)
+            if scope == "folder"
+            else workiq.run_agent_stream(
                 get_token, question, use_workiq=workiq_on, use_learn=use_learn
             )
-            scope_files = []
-    except Exception as exc:
-        _results[sid] = {"question": question, "error": str(exc)}
-        return RedirectResponse("/", status_code=303)
+        )
 
-    _results[sid] = {
-        "question": question,
-        "answer_html": _md.render(answer),
-        "references": references,
-        "tool_calls": tool_calls,
-        "scope_files": scope_files,
-    }
-    # 結果を直接返さず GET に逃がす。ブラウザの「フォームを再送信しますか」が出なくなる。
-    return RedirectResponse("/", status_code=303)
+        folder = None
+        try:
+            async for event in stream:
+                if event["type"] == "scope":
+                    folder = event
+                elif event["type"] == "done":
+                    event = {"type": "done", "html": _result_html(event, folder)}
+                yield _line(event)
+        except Exception as exc:
+            yield _line({"type": "error", "message": str(exc)})
 
-
-@app.post("/reset")
-async def reset(request: Request):
-    _results.pop(request.session.get("sid", ""), None)
-    return RedirectResponse("/", status_code=303)
+    # 回答が出るまで 1 分以上かかるので、途中経過を流しながら返す。
+    return StreamingResponse(events(), media_type="application/x-ndjson")

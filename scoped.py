@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import base64
 import os
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from typing import Any
 from urllib.parse import unquote, urlsplit
 
@@ -76,11 +76,18 @@ def pin_files(urls: list[str]):
     return middleware
 
 
-async def run_agent(
+async def run_agent_stream(
     get_token: workiq.TokenProvider, question: str, *, use_learn: bool = True
-) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
+) -> AsyncIterator[dict[str, Any]]:
     """決めたフォルダーの中だけを探して答えさせる。"""
-    urls = [file["url"] for file in await files(get_token)]
-    return await workiq.run_agent(
-        get_token, question, use_learn=use_learn, middleware=[pin_files(urls)]
+    pinned = await files(get_token)
+    yield {"type": "scope", "name": FOLDER_NAME, "url": FOLDER_URL, "count": len(pinned)}
+
+    stream = workiq.run_agent_stream(
+        get_token,
+        question,
+        use_learn=use_learn,
+        middleware=[pin_files([file["url"] for file in pinned])],
     )
+    async for event in stream:
+        yield event
