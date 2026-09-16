@@ -29,6 +29,7 @@ Work IQ は**サインインした本人の委任トークン**で呼びます�
 
 - [Work IQ の概要 — アクセスと価格](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/#access-and-pricing)
 - [Work IQ API — ライセンスの要件](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/api-overview#licensing-requirements)
+- [Copilot クレジットの従量課金とコスト管理](https://learn.microsoft.com/microsoft-365/copilot/usage-based-billing-overview-copilot-credits)
 
 ## セットアップ
 
