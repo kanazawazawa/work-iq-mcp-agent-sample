@@ -1,10 +1,11 @@
-"""探す資料を、決めておいたフォルダーの中だけに固定する。
+"""決めておいたフォルダーの資料を先に見せる。
 
-ask は既定で利用者が見られる資料すべてを探す。fileUrls を渡すとその集合に固定されるので、
-置き場所が決まっているなら無関係な資料を辿らずに済む。
+ask は既定で利用者が見られる資料すべてを探す。fileUrls を渡すとその資料を優先するので、
+置き場所が決まっているならあたりがつきやすくなる。
 
-固定されるのはファイルだけで、メール・予定・チャットは引き続き対象になる (実測)。
-また検索範囲の指定であってアクセス制御ではない。利用者が見られる範囲は変わらない。
+★ 限定ではない。Learn の記述も "file URLs to use as context" で、渡した資料に答えが無ければ
+サービス側の判断で外の資料も探す（実測で確認）。これで範囲を閉じることはできない。
+また利用者が見られる範囲を狭めるものでもない。
 """
 
 from __future__ import annotations
@@ -62,9 +63,10 @@ async def files(get_token: workiq.TokenProvider) -> list[dict[str, str]]:
 
 
 def pin_files(urls: list[str]):
-    """ask が探す範囲を、渡したファイルだけに差し替えるミドルウェアを返す。
+    """ask に、渡した資料を先に見るよう伝えるミドルウェアを返す。
 
-    モデルが決めた引数を手前で書き換えるので、範囲はモデルの判断に左右されない。
+    モデルが決めた引数を手前で書き換えるので、モデルの判断で渡し忘れることはない。
+    ただし渡した後にどこまで探すかは Work IQ 側が決める。
     """
 
     @function_middleware
@@ -77,9 +79,9 @@ def pin_files(urls: list[str]):
 
 
 async def run_agent_stream(
-    get_token: workiq.TokenProvider, question: str, *, use_learn: bool = True
+    get_token: workiq.TokenProvider, question: str, *, use_learn: bool = True, effort: str = ""
 ) -> AsyncIterator[dict[str, Any]]:
-    """決めたフォルダーの中だけを探して答えさせる。"""
+    """決めたフォルダーの資料を先に見せて答えさせる。"""
     pinned = await files(get_token)
     yield {"type": "scope", "name": FOLDER_NAME, "url": FOLDER_URL, "count": len(pinned)}
 
@@ -87,6 +89,7 @@ async def run_agent_stream(
         get_token,
         question,
         use_learn=use_learn,
+        effort=effort,
         middleware=[pin_files([file["url"] for file in pinned])],
     )
     async for event in stream:

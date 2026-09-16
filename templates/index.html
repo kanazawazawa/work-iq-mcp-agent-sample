@@ -55,6 +55,10 @@
   .toggle input { accent-color: #2a2; width: 1rem; height: 1rem; cursor: pointer; margin: 0; }
   .toggle:not(:has(:checked)) { opacity: .5; }
   .toggle .note { margin-left: .1rem; }
+  .picker { display: flex; align-items: center; gap: .45rem;
+            border: 1px solid #8886; border-radius: 999px; padding: .3rem 1rem; }
+  .picker select { font: inherit; font-size: .9rem; background: none; color: inherit;
+                   border: none; cursor: pointer; }
   .log { font-size: .85rem; opacity: .75; margin-top: 1.5rem;
          border-left: 3px solid #8886; padding-left: .8rem; }
   .log div { margin: .15rem 0; }
@@ -95,6 +99,15 @@
       <input type="checkbox" name="use_learn" {% if use_learn %}checked{% endif %}>
       Microsoft Learn <span class="note">Learn MCP</span>
     </label>
+    <label class="picker">
+      <span class="note">推論</span>
+      <select name="effort">
+        <option value="" {% if not effort %}selected{% endif %}>既定</option>
+        {% for level in efforts %}
+          <option value="{{ level }}" {% if effort == level %}selected{% endif %}>{{ level }}</option>
+        {% endfor %}
+      </select>
+    </label>
   </div>
 
   <textarea name="question" rows="3" required
@@ -110,14 +123,14 @@
     トグルで入れた MCP だけがエージェントのツールになります。
     どちらを使うか、そもそも使うかは、エージェント自身が判断します。
     {% if scoped %}
-    <br>② は <a href="{{ folder_url }}" target="_blank" rel="noopener noreferrer">{{ folder_name }}</a> フォルダーの中だけを探します。
+    <br>② は <a href="{{ folder_url }}" target="_blank" rel="noopener noreferrer">{{ folder_name }}</a> の資料を先に見ます。そこに答えが無いときは外も探します。
     {% endif %}
   </p>
 
   <button type="submit" name="scope" value="all">
     {% if scoped %}① {% endif %}実行</button>
   {% if scoped %}
-    <button type="submit" name="scope" value="folder">② 決めた資料だけ</button>
+    <button type="submit" name="scope" value="folder">② 決めた資料を優先</button>
   {% endif %}
   {# formnovalidate: このボタンだけ textarea の required を無視する #}
   <button type="button" class="secondary" onclick="clearAll()" formnovalidate>クリア</button>
@@ -215,7 +228,7 @@
     if (event.type === 'login') {
       location.href = '/login';
     } else if (event.type === 'scope') {
-      log(`${event.name} の ${event.count} 件に絞りました`);
+      log(`${event.name} の ${event.count} 件を先に見ます`);
       log('考えています…', true);
     } else if (event.type === 'tool') {
       log(`${event.name} を呼びました`, true);

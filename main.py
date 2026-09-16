@@ -133,6 +133,8 @@ def _render(request: Request, **extra):
             "examples": EXAMPLES,
             "use_workiq": mcp["workiq"],
             "use_learn": mcp["learn"],
+            "efforts": workiq.EFFORTS,
+            "effort": request.session.get("effort", ""),
             # WORKIQ_FOLDER_URL が未設定なら ② は出さない。
             "scoped": bool(scoped.FOLDER_URL),
             "folder_url": scoped.FOLDER_URL,
@@ -195,10 +197,12 @@ async def ask(
     # チェックボックスは OFF のとき送られてこないので、既定値がそのまま OFF になる。
     use_workiq: bool = Form(False),
     use_learn: bool = Form(False),
+    effort: str = Form(""),
 ):
     # ② は Work IQ が前提なので、トグルの状態によらず入れる。
     workiq_on = use_workiq or scope == "folder"
     request.session["mcp"] = {"workiq": workiq_on, "learn": use_learn}
+    request.session["effort"] = effort
     sid = request.session.get("sid", "")
 
     async def events():
@@ -208,10 +212,10 @@ async def ask(
 
         get_token = _token_provider(sid) if sid in _caches else None
         stream = (
-            scoped.run_agent_stream(get_token, question, use_learn=use_learn)
+            scoped.run_agent_stream(get_token, question, use_learn=use_learn, effort=effort)
             if scope == "folder"
             else workiq.run_agent_stream(
-                get_token, question, use_workiq=workiq_on, use_learn=use_learn
+                get_token, question, use_workiq=workiq_on, use_learn=use_learn, effort=effort
             )
         )
 

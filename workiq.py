@@ -55,6 +55,9 @@ Microsoft 製品の仕様や手順など、公式情報が要るときは mslear
 日時は {TIME_ZONE} で表示します。
 """
 
+# 推論の強さ。空なら指定せずサービスの既定に任せる。
+EFFORTS = ["none", "low", "medium", "high", "xhigh"]
+
 TokenProvider = Callable[[], str]
 
 _chat_client: OpenAIChatClient | None = None
@@ -217,6 +220,7 @@ async def run_agent_stream(
     *,
     use_workiq: bool = True,
     use_learn: bool = True,
+    effort: str = "",
     middleware: list[Any] | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """渡された MCP をツールとして持たせ、自社エージェントに答えさせる。
@@ -249,7 +253,11 @@ async def run_agent_stream(
             tools=tools,
             middleware=middleware,
         )
-        stream = agent.run(question, stream=True)
+        stream = agent.run(
+            question,
+            stream=True,
+            options={"reasoning": {"effort": effort}} if effort in EFFORTS else {},
+        )
 
         seen: set[str] = set()
         async for update in stream:
@@ -281,11 +289,17 @@ async def run_agent(
     *,
     use_workiq: bool = True,
     use_learn: bool = True,
+    effort: str = "",
     middleware: list[Any] | None = None,
 ) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
     """run_agent_stream の結果だけが欲しいときに使う。"""
     async for event in run_agent_stream(
-        get_token, question, use_workiq=use_workiq, use_learn=use_learn, middleware=middleware
+        get_token,
+        question,
+        use_workiq=use_workiq,
+        use_learn=use_learn,
+        effort=effort,
+        middleware=middleware,
     ):
         if event["type"] == "done":
             return event["answer"], event["tool_calls"], event["references"]
