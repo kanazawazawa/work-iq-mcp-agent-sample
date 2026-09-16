@@ -22,14 +22,12 @@ Work IQ は**サインインした本人の委任トークン**で呼びます�
 
 - **テナントで Work IQ を有効化**しておく（サービス プリンシパルの作成と従量課金プランの割り当て）
   → [Enable your tenant for Work IQ](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/enable-work-iq)
+- **ライセンスと課金の条件を確認**しておく
+  → [Work IQ の概要 — アクセスと価格](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/#access-and-pricing)
+  → [Work IQ API — ライセンスの要件](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/api-overview#licensing-requirements)
+  → [Copilot クレジットの従量課金とコスト管理](https://learn.microsoft.com/microsoft-365/copilot/usage-based-billing-overview-copilot-credits)
 - Azure OpenAI のデプロイ (エージェント側のモデル)
 - Python 3.12 以降（動作確認は 3.14）
-
-### ライセンスと課金
-
-- [Work IQ の概要 — アクセスと価格](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/#access-and-pricing)
-- [Work IQ API — ライセンスの要件](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/api-overview#licensing-requirements)
-- [Copilot クレジットの従量課金とコスト管理](https://learn.microsoft.com/microsoft-365/copilot/usage-based-billing-overview-copilot-credits)
 
 ## セットアップ
 
