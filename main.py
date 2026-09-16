@@ -123,6 +123,8 @@ def _render(request: Request, **extra):
             "use_learn": mcp["learn"],
             # WORKIQ_FOLDER_URL が未設定なら ② は出さない。
             "scoped": bool(scoped.FOLDER_URL),
+            "folder_url": scoped.FOLDER_URL,
+            "folder_name": scoped.FOLDER_NAME,
             **extra,
         },
     )

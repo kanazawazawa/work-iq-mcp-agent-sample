@@ -105,7 +105,7 @@
     トグルで入れた MCP だけがエージェントのツールになります。
     どちらを使うか、そもそも使うかは、エージェント自身が判断します。
     {% if scoped %}
-    <br>② を押すと、あらかじめ決めておいたフォルダーの中だけを探します。
+    <br>② は <a href="{{ folder_url }}" target="_blank" rel="noopener noreferrer">{{ folder_name }}</a> フォルダーの中だけを探します。
     {% endif %}
   </p>
 
@@ -153,7 +153,10 @@
   {% if scope_files %}
     <div class="calls">
       <span class="note">探した範囲:</span>
-      {% for file in scope_files %}<span class="badge">{{ file.name }}</span>{% endfor %}
+      <span class="badge">
+        <a href="{{ folder_url }}" target="_blank" rel="noopener noreferrer">{{ folder_name }}</a>
+        の {{ scope_files|length }} 件
+      </span>
     </div>
   {% endif %}
   <div class="calls">

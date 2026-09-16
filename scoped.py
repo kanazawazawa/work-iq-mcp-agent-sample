@@ -13,6 +13,7 @@ import base64
 import os
 from collections.abc import Callable
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 from agent_framework import FunctionInvocationContext, function_middleware
 
@@ -20,6 +21,7 @@ import workiq
 
 # SharePoint のフォルダー URL。ブラウザーでコピーしたものをそのまま貼る。
 FOLDER_URL = os.environ.get("WORKIQ_FOLDER_URL", "").strip()
+FOLDER_NAME = unquote(urlsplit(FOLDER_URL).path.rstrip("/").rsplit("/", 1)[-1])
 
 _files: list[dict[str, str]] | None = None
 
