@@ -25,6 +25,11 @@ Work IQ は**サインインした本人の委任トークン**で呼びます�
 - Azure OpenAI のデプロイ (エージェント側のモデル)
 - Python 3.12 以降（動作確認は 3.14）
 
+### ライセンスと課金
+
+- [Work IQ の概要 — アクセスと価格](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/#access-and-pricing)
+- [Work IQ API — ライセンスの要件](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/api-overview#licensing-requirements)
+
 ## セットアップ
 
 ### 1. アプリ登録
