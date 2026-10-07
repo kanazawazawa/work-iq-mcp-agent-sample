@@ -36,6 +36,7 @@ TOOLS = ["ask", "search_paths", "get_schema", "fetch", "call_function"]
 
 # 指定しないと Work IQ は時刻を UTC で返す。
 TIME_ZONE = os.environ.get("WORKIQ_TIME_ZONE", "Asia/Tokyo")
+AGENT_NAME = os.environ.get("AGENT_NAME", "").strip() or "workiq-demo"
 
 # ツールの使い方は書かない。ここに書くのはアプリ側の方針だけ。
 INSTRUCTIONS = f"""あなたは利用者の仕事を助けるアシスタントです。
@@ -249,6 +250,8 @@ async def run_agent_stream(
 
         agent = Agent(
             client=_client(),
+            name=AGENT_NAME,
+            id=AGENT_NAME,
             instructions=INSTRUCTIONS,
             tools=tools,
             middleware=middleware,

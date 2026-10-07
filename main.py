@@ -28,6 +28,33 @@ load_dotenv()
 import scoped  # noqa: E402
 import workiq  # noqa: E402
 
+if connection_string := os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING", "").strip():
+    from agent_framework.observability import create_resource, enable_instrumentation
+    from azure.monitor.opentelemetry import configure_azure_monitor
+    from opentelemetry.sdk.trace import SpanProcessor
+
+    class _AgentIdentityProcessor(SpanProcessor):
+        def on_start(self, span, parent_context=None):
+            if span.instrumentation_scope and span.instrumentation_scope.name == "agent_framework":
+                span.set_attribute("gen_ai.agent.id", workiq.AGENT_NAME)
+
+    configure_azure_monitor(
+        connection_string=connection_string,
+        resource=create_resource(service_name=workiq.AGENT_NAME),
+        span_processors=[_AgentIdentityProcessor()],
+        logger_name="agent_framework",
+        sampling_ratio=1.0,
+        enable_live_metrics=False,
+        instrumentation_options={
+            name: {"enabled": False}
+            for name in (
+                "azure_sdk", "django", "fastapi", "flask", "httpx", "httpx2",
+                "psycopg2", "requests", "urllib", "urllib3",
+            )
+        },
+    )
+    enable_instrumentation()
+
 
 def _required(name: str) -> str:
     value = os.environ.get(name)

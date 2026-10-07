@@ -62,6 +62,22 @@ az login                                        # モデル呼び出しに使う
 
 <http://localhost:8000> を開き、**M365 連携** を ON にして Microsoft 365 に接続します。
 
+### 4. Foundry にトレースをリンクする (任意・プレビュー)
+
+外部エージェント登録を使うと、このアプリをローカルで動かしたまま Foundry ポータルでトレースを確認できます。実行環境の移行や AI Gateway は不要です。
+
+1. 対象の Foundry プロジェクトに Application Insights を接続します。
+2. [.env](.env) の `APPLICATIONINSIGHTS_CONNECTION_STRING` に、その Application Insights の接続文字列を設定します。
+3. `AGENT_NAME=workiq-demo` に揃え、Foundry の「外部エージェントの登録」でエージェント名を `workiq-demo` にします。OTel エージェント ID は空欄 (名前が既定値) または同じ値にします。
+4. 質問・応答・ツール引数・結果も確認するときは `ENABLE_SENSITIVE_DATA=true` にします。設定例の既定値は `false` です。
+5. アプリを再起動して質問を実行し、通常 2～5 分後に Foundry の「エージェント > workiq-demo > トレース」で確認します。既存環境では先に `python -m pip install -r requirements.txt` を実行してください。
+
+アプリは `Agent.name` と `Agent.id` を同じ `AGENT_NAME` に固定します。登録の `otel_agent_id` とスパンの `gen_ai.agent.id` が一致し、送信先がプロジェクトに接続された Application Insights である必要があります。接続文字列が空の場合、Azure への送信は初期化しません。過去の未記録の実行を後から復元することはできません。
+
+**詳細記録には M365 の取得内容も含まれます。** ログの閲覧権限・保持期間・保存先を確認し、検証環境でのみ有効にしてください。M365 の元文書の権限はログの閲覧権限には引き継がれません。サインインの URL などを記録しないよう HTTP の自動計測は無効にし、エージェントのスパンとログを送信します。Work IQ サービス内部の検索手順は、この設定だけでは取得できません。
+
+公式資料: [外部エージェントの登録](https://learn.microsoft.com/azure/foundry/agents/how-to/register-external-agent)、[Application Insights の接続](https://learn.microsoft.com/azure/foundry/observability/how-to/trace-agent-setup)、[Agent Framework の可観測性](https://learn.microsoft.com/agent-framework/agents/observability)。
+
 ## MCP をエージェントに渡す
 
 これだけです ([workiq.py](workiq.py))。
@@ -121,7 +137,7 @@ Work IQ MCP の呼び方を示すための最小構成です。そのまま本�
 - セッションの永続化と共有
 - エラー処理、レート制限、再試行
 - 会話の継続 (`ask` の `conversationId`)
-- ログと監査
+- 本番向けのログ運用と監査
 
 ## 参考
 
